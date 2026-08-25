@@ -1,0 +1,25 @@
+{{/*
+  The catalog ConfigMap. This chart is installed as a normal Krateo composition (a CompositionDefinition
+  + one instance the umbrella emits); the engine helm-installs it and this template materializes the two
+  curated indexes into a ConfigMap the portal reads over the k8s API. No hook Job, no helm-in-image, no
+  extra RBAC — the engine already has what it needs. Refresh = on installer upgrade (the umbrella re-installs
+  the pinned catalog version), matching the file-push model.
+
+  Values are stored as JSON (compact, one line each) because snowplow does NOT YAML->JSON an in-cluster
+  bare-path ConfigMap GET (that conversion is external-endpointRef only) and jq has no fromyaml — the portal
+  reads `.data["<name>-index.json"] | fromjson`.
+*/}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ .Values.configMapName | default "blueprints-catalog-index" }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app.kubernetes.io/managed-by: {{ .Release.Service }}
+    app.kubernetes.io/part-of: krateo-marketplace
+  annotations:
+    # Observable staleness signal: which catalog chart version populated this ConfigMap.
+    krateo.io/catalog-version: {{ .Chart.Version | quote }}
+data:
+  blueprints-index.json: {{ .Files.Get "files/blueprints-index.json" | quote }}
+  operators-index.json: {{ .Files.Get "files/operators-index.json" | quote }}

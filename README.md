@@ -1,23 +1,25 @@
 # krateo-blueprints/marketplace
 
-The Krateo marketplace **catalog** — the curated blueprint + operator index, packaged as a data-only
-OCI Helm artifact so it can be pulled **in-cluster** into a ConfigMap and served to the portal, with
-**no external GitHub-Pages fetch** at portal runtime.
+The Krateo marketplace **catalog** — the curated blueprint + operator index, packaged as an OCI Helm
+chart that **renders a ConfigMap** the portal reads in-cluster, with **no external GitHub-Pages fetch**
+at portal runtime.
 
 ## What this is (and is not)
-- **Is:** `krateo-marketplace-catalog/` — a template-less, image-less Helm chart whose only payload is
-  two files, `files/blueprints-index.json` and `files/operators-index.json` (Helm v1 repo indexes,
-  one entry per installable Composition, stored as compact JSON).
+- **Is:** `krateo-marketplace-catalog/` — a tiny, image-less Helm chart installed as a normal Krateo
+  composition. Its one template (`templates/configmap.yaml`) materializes the two curated indexes
+  (`files/{blueprints,operators}-index.json`, Helm v1 repo indexes stored as compact JSON) into a
+  ConfigMap (`blueprints-catalog-index`) in the platform namespace. The engine installs it like any
+  component — no hook Job, no kubectl/helm image, no extra RBAC.
 - **Is not:** the blueprint *content*. The charts themselves live in `krateo-blueprints/*` and are
   published to `oci://ghcr.io/krateo-blueprints/charts` + the `krateo-blueprints.github.io/charts` Helm
   repo. This repo only indexes them.
 
 ## Why JSON, why in-cluster
-The installer's catalog bootstrap wave `helm pull`s this chart and copies the two JSON files into a
-ConfigMap (`blueprints-catalog-index`). The portal reads `.data["<name>-index.json"] | fromjson` over
-the k8s API. snowplow does **not** YAML→JSON an in-cluster ConfigMap read (that conversion is external-
-`endpointRef` only) and jq has no `fromyaml`, so the catalog must be **JSON**. Serving from a ConfigMap
-removes the runtime dependency on an external Pages host and makes the marketplace work behind a mirror.
+The installer pins this chart as a portal-feature component; the engine installs it and the ConfigMap
+appears. The portal reads `.data["<name>-index.json"] | fromjson` over the k8s API. snowplow does **not**
+YAML→JSON an in-cluster ConfigMap read (that conversion is external-`endpointRef` only) and jq has no
+`fromyaml`, so the catalog is stored as **JSON**. Serving from a ConfigMap removes the runtime dependency
+on an external Pages host and makes the marketplace work behind a mirror.
 
 ## Curation
 `hack/build-index.py` regenerates the two JSON files from the live indexes and **removes platform-
