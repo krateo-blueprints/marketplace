@@ -1,0 +1,78 @@
+# Packages every chart in this repo and publishes each to the GitHub Container Registry as an OCI
+# Helm artifact on every semver tag. Shape-agnostic: it discovers charts by locating each Chart.yaml
+# (skipping vendored subcharts under charts/), so it works regardless of the repo's directory layout.
+#
+# Charts opt into versioning with the CHART_VERSION placeholder in Chart.yaml, which the git tag
+# replaces at publish time. Pushing tag "0.1.0" publishes each chart <name> as:
+#   oci://ghcr.io/<owner>/charts/<name>:0.1.0
+name: release-tag
+
+on:
+  push:
+    tags: ["[0-9]+.[0-9]+.[0-9]+"]
+
+permissions:
+  contents: read
+  packages: write
+
+jobs:
+  package-and-push:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+
+      - name: Resolve version and registry
+        run: |
+          echo "VERSION=${GITHUB_REF_NAME}" >> "$GITHUB_ENV"
+          echo "OCI_REPO=oci://ghcr.io/${GITHUB_REPOSITORY_OWNER,,}/charts" >> "$GITHUB_ENV"
+
+      - name: Log in to GHCR
+        run: |
+          echo "${{ secrets.GITHUB_TOKEN }}" | \
+            helm registry login ghcr.io --username "${{ github.actor }}" --password-stdin
+
+      - name: Package and push every chart
+        run: |
+          set -euo pipefail
+          find . -type f -name Chart.yaml -not -path '*/charts/*' -print0 | while IFS= read -r -d '' cf; do
+            dir=$(dirname "$cf")
+            name=$(awk '/^name:/{print $2; exit}' "$cf")
+            echo "::group::${name} (${dir})"
+            # Stamp the CHART_VERSION placeholder, and pin the package version to the tag either way.
+            sed -i "s/CHART_VERSION/${VERSION}/g" "$cf"
+            # Dependency fetch is retried: a subchart pulled from an upstream Helm repo
+            # (external-dns from kubernetes-sigs.github.io) fails transiently, and because
+            # the fetch failure was swallowed with `|| true`, `helm package` then died hard
+            # on the missing tarball and killed the whole loop — leaving a PARTIAL publish
+            # (some charts at the new version, some not). Retry a few times so a flake
+            # self-heals; only give up after real, repeated failure.
+            if grep -q '^dependencies:' "$cf"; then
+              ok=""
+              for attempt in 1 2 3; do
+                if helm dependency update "$dir" 2>/dev/null; then ok=1; break; fi
+                echo "::warning::${name}: dependency fetch failed (attempt ${attempt}/3), retrying"
+                sleep $((attempt*10))
+              done
+              if [ -z "$ok" ]; then
+                echo "::error::${name}: dependency fetch failed after 3 attempts — skipping this chart so the rest of the release still publishes"
+                failed="${failed} ${name}"
+                echo "::endgroup::"
+                continue
+              fi
+            fi
+            helm package "$dir" --version "${VERSION}" --destination .
+            helm push "${name}-${VERSION}.tgz" "${OCI_REPO}"
+            echo "Published ${OCI_REPO}/${name}:${VERSION}"
+            echo "::endgroup::"
+          done
+          # A partial publish is not a silent success: fail the job (after publishing
+          # everything that could publish) so the missing charts are visible and the run
+          # is re-runnable, rather than the tag looking fully released when it is not.
+          if [ -n "${failed:-}" ]; then
+            echo "::error::these charts did not publish at ${VERSION}:${failed}"
+            exit 1
+          fi

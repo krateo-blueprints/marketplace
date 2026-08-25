@@ -1,0 +1,10 @@
+apiVersion: v2
+name: krateo-marketplace-catalog
+description: >-
+  Krateo marketplace catalog — the curated blueprint + operator index (Helm v1 index, one
+  entry per installable Composition) bundled as a data-only OCI artifact. The installer pulls
+  this chart in-cluster and writes the two indexes into a ConfigMap the portal serves, replacing
+  the external GitHub-Pages fetch. Content-only: no templates, no images, no dependencies.
+type: application
+# CHART_VERSION is stamped to the git tag by .github/workflows/release-tag.yaml at release time.
+version: CHART_VERSION
