@@ -1,0 +1,20 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "type": "object",
+  "title": "Krateo Marketplace Catalog",
+  "description": "Renders the marketplace catalog ConfigMap (the curated blueprint + operator indexes as JSON) for the portal to read in-cluster. The catalog content is baked into the chart; the only install-time tunable is the ConfigMap name.",
+  "additionalProperties": false,
+  "properties": {
+    "global": {
+      "type": "object",
+      "title": "Global values",
+      "description": "Helm global values (injected when this chart is used as a subchart)."
+    },
+    "configMapName": {
+      "type": "string",
+      "title": "Catalog ConfigMap name",
+      "description": "Name of the rendered catalog ConfigMap. The portal reads this same name via its marketplace.configMapName value.",
+      "default": "blueprints-catalog-index"
+    }
+  }
+}

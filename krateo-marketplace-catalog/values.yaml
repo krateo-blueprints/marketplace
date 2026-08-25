@@ -1,0 +1,3 @@
+# Name of the rendered catalog ConfigMap. Must match the portal's marketplace.configMapName
+# (default there is the same, so no override is needed on a standard install).
+configMapName: blueprints-catalog-index
