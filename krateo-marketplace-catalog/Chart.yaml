@@ -12,8 +12,3 @@ version: CHART_VERSION
 # installer's pin can be traced to the commit and CI run that built it.
 sources:
   - https://github.com/krateo-blueprints/marketplace
-keywords:
-  - krateo
-  - marketplace
-  - catalog
-  - portal
