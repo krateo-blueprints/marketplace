@@ -37,3 +37,10 @@ python3 hack/build-index.py        # refetch live indexes, curate, rewrite the t
 Tag a semver (`X.Y.Z`); `.github/workflows/release-tag.yaml` stamps the `CHART_VERSION` placeholder and
 publishes `oci://ghcr.io/krateo-blueprints/charts/krateo-marketplace-catalog:X.Y.Z`. The installer pins
 that version and pulls it via the same `registries[]` credential it already uses for krateo-blueprints.
+
+The same archive is also published to the `operators` channel of the Marketplace's helm index
+(`https://krateo-blueprints.github.io/charts/operators`), as the organisation's publishing standard
+requires of every chart (krateo-blueprints/charts `PUBLISHING.md`). The channel follows from the content:
+the chart ships no `CompositionDefinition` (the installer's umbrella registers it), so it is not a
+blueprint. The release refuses to start if the org secret `CHARTS_PUBLISH_TOKEN` is unset, so GHCR and the
+index never hold different versions.

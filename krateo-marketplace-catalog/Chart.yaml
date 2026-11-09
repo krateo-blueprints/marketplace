@@ -8,3 +8,7 @@ description: >-
 type: application
 # CHART_VERSION is stamped to the git tag by .github/workflows/release-tag.yaml at release time.
 version: CHART_VERSION
+# The repository that builds this chart (krateo-blueprints/charts PUBLISHING.md rule 3), so the
+# installer's pin can be traced to the commit and CI run that built it.
+sources:
+  - https://github.com/krateo-blueprints/marketplace
